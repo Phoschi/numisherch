@@ -50,7 +50,7 @@ function App() {
        fontFamily: "Arial, sans-serif",
      }}
    >
-     <h1>Numisherch</h1>
+     <h1>Numisherch Je peux récup les maj</h1>
      <p>Socle technique de l'application</p>
      <button
        onClick={handleUpdate}
