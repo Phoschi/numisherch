@@ -24,6 +24,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -31,5 +32,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": false,
+      "endpoints": [],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkyMDY0ODhCQkFENUI4QzUKUldURnVOVzZpMGdHa2xBREZiamtZMUNrUTdCYS9NdFMxRm1Cb0JYNWl4TWRRUkJsYmd6UVFVM0gK"
+    }
   }
 }
