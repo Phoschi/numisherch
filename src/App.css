@@ -1,9 +1,9 @@
 :root {
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  color: #000000;
+  color: #201812;
   background:
-    radial-gradient(circle at top left, rgba(217, 199, 167, 0.82), transparent 28%),
-    linear-gradient(180deg, #f7efe3 0%, #eee6d8 100%);
+    radial-gradient(circle at top left, rgba(180, 123, 43, 0.22), transparent 26%),
+    linear-gradient(180deg, #f4efe7 0%, #e7dece 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -29,12 +29,13 @@ textarea {
 }
 
 button {
-  border: 1px solid #000000;
+  border: 1px solid #7d5a23;
   cursor: pointer;
   transition:
     transform 0.16s ease,
     background-color 0.16s ease,
-    border-color 0.16s ease;
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 button:hover {
@@ -53,8 +54,8 @@ textarea {
 }
 
 .panel {
-  background: rgba(255, 251, 244, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 252, 247, 0.94);
+  border: 1px solid rgba(84, 60, 24, 0.12);
   border-radius: 24px;
   box-shadow: 0 18px 34px rgba(94, 66, 26, 0.08);
 }
@@ -69,7 +70,8 @@ textarea {
 
 .topbar h1,
 .panel-header h2,
-.subsection-header h3 {
+.subsection-header h3,
+.update-panel h2 {
   margin: 0;
 }
 
@@ -90,6 +92,19 @@ textarea {
   line-height: 1.5;
 }
 
+.version-note {
+  margin: 0.6rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid rgba(84, 60, 24, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.88);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #5a3c17;
+}
+
 .topbar-side {
   display: flex;
   flex-wrap: wrap;
@@ -101,9 +116,9 @@ textarea {
   min-width: 110px;
   padding: 0.7rem 0.85rem;
   display: grid;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(84, 60, 24, 0.14);
   border-radius: 18px;
-  background: rgba(217, 199, 167, 0.36);
+  background: rgba(222, 202, 170, 0.52);
 }
 
 .status-chip span {
@@ -116,28 +131,58 @@ textarea {
   font-size: 1.15rem;
 }
 
+.update-panel {
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.update-panel-copy {
+  max-width: 45rem;
+}
+
+.update-panel-side {
+  display: grid;
+  align-content: center;
+  gap: 0.45rem;
+  justify-items: end;
+}
+
+.update-version {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.78;
+}
+
 .tab-nav {
   padding: 0.4rem;
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .tab-button {
-  padding: 0.78rem 1rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.82rem 1rem;
   border-radius: 18px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  color: #3d2c15;
 }
 
 .tab-button-active {
-  background: #d9c7a7;
+  background: #b87928;
+  border-color: #8e5f20;
+  color: #fff9f0;
 }
 
 .tab-badge {
   margin-left: 0.45rem;
   padding: 0.12rem 0.45rem;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.22);
   font-size: 0.8rem;
 }
 
@@ -182,7 +227,7 @@ textarea {
   gap: 0.75rem;
   padding: 0.85rem 0.95rem;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 .notice-strip-item p {
@@ -230,18 +275,18 @@ textarea {
 }
 
 .filter-chip {
-  padding: 0.7rem 0.9rem;
+  padding: 0.72rem 0.92rem;
   display: grid;
   gap: 0.15rem;
   text-align: left;
-  background: rgba(217, 199, 167, 0.34);
+  background: rgba(244, 236, 224, 0.98);
+  border-color: rgba(125, 90, 35, 0.14);
 }
 
 .filter-chip-active,
 .tag-button-selected,
-.tab-button-active,
 .coin-card-selected {
-  background: #d9c7a7;
+  background: #dfc08b;
 }
 
 .filter-chip strong,
@@ -267,7 +312,7 @@ textarea {
 
 .soft-counter {
   padding: 0.58rem 0.72rem;
-  background: rgba(217, 199, 167, 0.4);
+  background: rgba(223, 192, 139, 0.44);
   font-size: 0.88rem;
 }
 
@@ -285,7 +330,8 @@ textarea {
   width: 100%;
   padding: 0.95rem;
   text-align: left;
-  background: rgba(217, 199, 167, 0.46);
+  background: rgba(250, 244, 235, 0.98);
+  border-color: rgba(125, 90, 35, 0.14);
 }
 
 .coin-card-head,
@@ -324,9 +370,9 @@ textarea {
 
 .mini-tag {
   padding: 0.4rem 0.6rem;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(125, 90, 35, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 252, 247, 0.96);
   font-size: 0.82rem;
 }
 
@@ -341,9 +387,9 @@ textarea {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(84, 60, 24, 0.08);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .editor-state-text {
@@ -355,7 +401,7 @@ textarea {
   margin: 0 0 1rem;
   padding: 0.85rem 0.95rem;
   border-radius: 18px;
-  background: rgba(217, 199, 167, 0.34);
+  background: rgba(223, 192, 139, 0.35);
 }
 
 .editor-form {
@@ -364,9 +410,9 @@ textarea {
 }
 
 .accordion-card {
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(84, 60, 24, 0.1);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.76);
   overflow: hidden;
 }
 
@@ -382,7 +428,7 @@ textarea {
 }
 
 .accordion-card[open] summary {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(84, 60, 24, 0.08);
 }
 
 .accordion-content {
@@ -393,9 +439,9 @@ textarea {
 
 .subsection-card {
   padding: 0.95rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(84, 60, 24, 0.1);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.76);
 }
 
 .subsection-header {
@@ -430,16 +476,16 @@ textarea {
 
 .field {
   width: 100%;
-  border: 1px solid rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(84, 60, 24, 0.16);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #000000;
+  background: rgba(255, 254, 251, 0.97);
+  color: #201812;
   padding: 0.78rem 0.9rem;
 }
 
 .field:focus {
-  outline: 2px solid rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.3);
+  outline: 2px solid rgba(184, 121, 40, 0.16);
+  border-color: rgba(125, 90, 35, 0.32);
 }
 
 .textarea-field {
@@ -461,7 +507,7 @@ textarea {
 .draft-card {
   padding: 1rem;
   border-radius: 20px;
-  background: rgba(217, 199, 167, 0.28);
+  background: rgba(250, 244, 235, 0.98);
 }
 
 .draft-card-head p {
@@ -491,11 +537,14 @@ textarea {
 }
 
 .primary-button {
-  background: #d9c7a7;
+  background: #b87928;
+  color: #fff9f0;
+  border-color: #8e5f20;
 }
 
 .secondary-button {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.7);
+  color: #3d2c15;
 }
 
 .danger-button {
@@ -505,7 +554,7 @@ textarea {
 }
 
 .icon-button {
-  background: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .state-pill {
@@ -513,17 +562,41 @@ textarea {
   align-items: center;
   padding: 0.42rem 0.72rem;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(84, 60, 24, 0.12);
   font-size: 0.85rem;
   white-space: nowrap;
 }
 
 .state-pill-neutral {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .state-pill-warning {
-  background: rgba(217, 199, 167, 0.72);
+  background: rgba(223, 192, 139, 0.72);
+}
+
+.update-badge {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(84, 60, 24, 0.16);
+  border-radius: 999px;
+  font-size: 0.86rem;
+}
+
+.update-badge-idle,
+.update-badge-checking {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.update-badge-available {
+  background: rgba(184, 121, 40, 0.18);
+}
+
+.update-badge-none {
+  background: rgba(84, 132, 90, 0.16);
+}
+
+.update-badge-error {
+  background: rgba(168, 63, 63, 0.14);
 }
 
 .micro-status {
@@ -532,7 +605,7 @@ textarea {
 }
 
 .micro-status-saving {
-  color: #654b23;
+  color: #7d5a23;
 }
 
 .micro-status-saved {
@@ -553,7 +626,7 @@ textarea {
 }
 
 .empty-state {
-  color: rgba(0, 0, 0, 0.7);
+  color: rgba(32, 24, 18, 0.7);
 }
 
 .error-banner {
@@ -576,6 +649,12 @@ textarea {
   .field-row,
   .filters-page-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .tab-nav {
+    flex-direction: column;
   }
 }
 

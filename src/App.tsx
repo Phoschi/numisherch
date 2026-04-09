@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 
 import "./App.css";
@@ -41,7 +42,9 @@ import type {
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("pieces");
   const [status, setStatus] = useState("Pret");
+  const [appVersion, setAppVersion] = useState<string>("...");
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
   const [overview, setOverview] = useState<AppOverview | null>(null);
   const [coins, setCoins] = useState<CoinRecord[]>([]);
   const [filters, setFilters] = useState<Filter[]>([]);
@@ -121,6 +124,18 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void getVersion()
+      .then((version) => {
+        setAppVersion(version);
+        setCurrentVersion(version);
+      })
+      .catch((error) => {
+        console.error(error);
+        setAppVersion("inconnue");
+      });
+  }, []);
+
+  useEffect(() => {
     if (loadingData || savingCoin || !editorIsDirty || isEditorStateEmpty(editorState)) {
       return;
     }
@@ -169,15 +184,18 @@ function App() {
   async function handleUpdate() {
     try {
       setStatus("Verification des mises a jour...");
+      setAvailableVersion(null);
 
       const update = await check();
 
       if (!update) {
         setStatus("Aucune mise a jour disponible.");
+        setCurrentVersion(appVersion);
         return;
       }
 
       setCurrentVersion(update.currentVersion);
+      setAvailableVersion(update.version);
       setStatus(`Mise a jour disponible : ${update.version}. Telechargement...`);
 
       await update.downloadAndInstall((event) => {
@@ -474,6 +492,7 @@ function App() {
           <p className="hero-copy">
             Pieces, filtres et brouillons sont maintenant separes en vues distinctes pour mieux suivre le travail.
           </p>
+          <p className="version-note">Version installee : {appVersion}</p>
         </div>
 
         <div className="topbar-side">
@@ -614,7 +633,9 @@ function App() {
 
       <footer className="footer-note">
         <p>{status}</p>
-        {currentVersion && <p>Version actuelle detectee : {currentVersion}</p>}
+        <p>Version installee : {appVersion}</p>
+        {currentVersion && <p>Version verifiee : {currentVersion}</p>}
+        {availableVersion && <p>Version disponible : {availableVersion}</p>}
         {overview && <p>Base SQLite : {overview.databasePath}</p>}
       </footer>
     </main>
