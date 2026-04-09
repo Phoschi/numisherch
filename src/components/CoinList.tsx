@@ -7,7 +7,6 @@ type CoinListProps = {
   filters: Filter[];
   loading: boolean;
   totalCoinCount: number;
-  onCreateCoin: () => void;
   onSelectCoin: (coin: CoinRecord) => void;
 };
 
@@ -18,7 +17,6 @@ export function CoinList({
   filters,
   loading,
   totalCoinCount,
-  onCreateCoin,
   onSelectCoin,
 }: CoinListProps) {
   const activeFilter = filters.find((filter) => filter.id === activeFilterId);
@@ -37,9 +35,6 @@ export function CoinList({
           <span className="soft-counter">
             {coins.length}/{totalCoinCount}
           </span>
-          <button className="primary-button" onClick={onCreateCoin}>
-            Nouvelle piece
-          </button>
         </div>
       </div>
 

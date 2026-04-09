@@ -45,31 +45,29 @@ Principes retenus :
 - message clair en cas d'absence de donnees
 - reprise facile d'un travail en cours
 
-## Ecran 1 - Vue principale
+## Ecran 1 - Vue Pieces
 
 ### Role
 
 C'est l'ecran central de l'application. Il permet :
-- de voir les filtres disponibles
-- de consulter la liste des pieces
-- d'ouvrir une fiche existante
-- de creer une nouvelle fiche
+- de voir toutes les pieces
+- de filtrer rapidement la collection
+- d'ouvrir une fiche existante dans une fenetre modale
+- de creer une nouvelle fiche dans une fenetre modale
 
 ### Structure
 
-L'ecran est compose de trois zones logiques :
+L'ecran est compose de deux zones logiques :
 
-- colonne gauche :
-  - liste des filtres
-  - action pour creer un filtre
+- zone haute :
+  - bouton `Nouvelle piece`
+  - filtres rapides si des filtres existent
+  - message d'aide si aucun filtre n'existe encore
 
-- zone centrale :
+- zone principale :
   - liste des pieces
   - affichage chronologique
   - message `aucune piece` si la liste est vide
-
-- zone haute droite :
-  - bouton `Nouvelle piece`
 
 ### Comportement
 
@@ -94,12 +92,13 @@ Si aucun resultat ne correspond :
 - deselectionner un filtre
 - ouvrir une fiche existante
 - cliquer sur `Nouvelle piece`
+- reprendre un brouillon via un bandeau d'information si necessaire
 
 ## Ecran 2 - Gestion des filtres
 
 ### Role
 
-Permettre a l'utilisateur de creer et maintenir ses propres categories de classement.
+Permettre a l'utilisateur de creer et maintenir ses propres categories de classement, puis de reclasser rapidement les pieces deja associees.
 
 ### Donnees gerees
 
@@ -115,6 +114,10 @@ Optionnellement :
 - creer un filtre
 - renommer un filtre
 - supprimer un filtre
+- voir les pieces rattachees au filtre selectionne
+- selectionner plusieurs pieces du filtre
+- associer cette selection a un autre filtre
+- retirer une piece du filtre courant
 - reordonner les filtres plus tard si necessaire
 
 ### Comportement V1
@@ -132,6 +135,13 @@ Suppression d'un filtre :
 - demander confirmation
 - la suppression ne supprime pas les pieces
 - elle retire seulement l'association entre les pieces et ce filtre
+
+Gestion des pieces d'un filtre :
+- l'utilisateur selectionne un filtre
+- l'application affiche les pieces associees
+- l'utilisateur peut cocher une ou plusieurs pieces
+- l'utilisateur peut les associer a un autre filtre en une action
+- l'utilisateur peut aussi retirer individuellement une piece du filtre courant
 
 ### Decision UX V1
 
@@ -178,7 +188,7 @@ Si la liste est vide globalement :
 
 ### Role
 
-Permettre a l'utilisateur de creer une nouvelle fiche de piece.
+Permettre a l'utilisateur de creer une nouvelle fiche de piece dans une fenetre modale dediee.
 
 ### Champs V1
 
@@ -202,14 +212,19 @@ Permettre a l'utilisateur de creer une nouvelle fiche de piece.
 ### Actions
 
 - `Enregistrer`
-- `Supprimer` uniquement si la piece existe deja
-- fermeture ou retour
+- fermeture de la fenetre
 
 ### Comportement de sauvegarde
 
 Tant que l'utilisateur n'a pas clique sur `Enregistrer` :
 - la piece n'est pas creee dans la table `coins`
 - les modifications peuvent exister dans un brouillon
+
+Si l'utilisateur ferme la fenetre en cliquant a l'exterieur ou sur `Fermer` :
+- si aucune modification utile n'existe, la fenetre se ferme
+- sinon, demander `Voulez-vous l'enregistrer en tant que brouillon ?`
+- si `Oui`, enregistrer le brouillon local puis fermer
+- si `Non`, fermer sans conserver les changements
 
 Quand l'utilisateur clique sur `Enregistrer` :
 - validation minimale
@@ -223,17 +238,17 @@ Quand l'utilisateur clique sur `Enregistrer` :
 Si l'utilisateur commence une nouvelle piece sans l'enregistrer :
 - un brouillon local peut etre cree
 
-Au prochain retour sur l'application :
-- si un brouillon de creation existe, l'application peut proposer de le reprendre
+Le brouillon est visible dans l'onglet `Brouillons`.
 
-Recommendation V1 :
-- afficher une proposition simple du type `Un brouillon non enregistre a ete retrouve. Voulez-vous le reprendre ?`
+Au prochain retour sur l'application :
+- l'utilisateur peut reprendre ce brouillon depuis l'onglet dedie
+- l'application peut aussi afficher un bandeau d'information dans la vue `Pieces`
 
 ## Ecran 5 - Formulaire Edition de piece
 
 ### Role
 
-Modifier une fiche existante.
+Modifier une fiche existante dans la meme fenetre modale que la creation.
 
 ### Chargement
 
@@ -258,15 +273,14 @@ Si l'utilisateur ferme l'ecran ou l'application en cours d'edition :
 - le brouillon d'edition doit permettre de reprendre le travail
 
 Au retour sur la fiche :
-- si un brouillon existe, proposer :
-  - reprendre le brouillon
-  - ignorer le brouillon et charger la version enregistree
+- si un brouillon existe, permettre de le reprendre depuis l'onglet `Brouillons`
+- ou via un bandeau contextuel dans la vue `Pieces`
 
 ### Decision UX V1
 
 Ne pas restaurer silencieusement un brouillon d'edition.
 
-Il vaut mieux demander explicitement a l'utilisateur ce qu'il veut faire.
+Il vaut mieux laisser l'utilisateur choisir explicitement quand le rouvrir.
 
 ## Ecran 6 - Suppression d'une piece
 
@@ -313,20 +327,16 @@ Brouillon d'edition :
 
 ### Regles de reprise
 
-Au lancement de l'application :
-- si un brouillon de creation existe, proposer de le reprendre
-
-A l'ouverture d'une piece :
-- si un brouillon d'edition existe, proposer de le reprendre
+Depuis l'onglet `Brouillons` :
+- l'utilisateur voit tous les brouillons disponibles
+- un clic sur `Reprendre` ouvre la fenetre modale avec les donnees du brouillon
+- apres `Enregistrer`, l'application revient a la vue `Pieces`
 
 ### Actions utilisateur
 
 Sur un brouillon retrouve :
 - `Reprendre`
-- `Ignorer`
-
-Option future :
-- `Supprimer le brouillon`
+- `Supprimer`
 
 ## Regles fonctionnelles transverses
 
@@ -387,25 +397,27 @@ Message possible :
 ### Flux 1 - Creer une piece
 
 1. cliquer sur `Nouvelle piece`
-2. remplir un ou plusieurs champs
-3. selectionner des filtres si necessaire
-4. cliquer sur `Enregistrer`
-5. retour a la liste
-6. la piece apparait dans la liste
+2. la fenetre modale s'ouvre
+3. remplir un ou plusieurs champs
+4. selectionner des filtres si necessaire
+5. cliquer sur `Enregistrer`
+6. retour a la liste
+7. la piece apparait dans la liste
 
 ### Flux 2 - Modifier une piece
 
 1. cliquer sur une piece existante
-2. modifier les champs
-3. cliquer sur `Enregistrer`
-4. la fiche est mise a jour
+2. la fenetre modale s'ouvre
+3. modifier les champs
+4. cliquer sur `Enregistrer`
+5. la fiche est mise a jour
 
 ### Flux 3 - Reprendre un brouillon
 
 1. ouvrir l'application ou la fiche
-2. voir la proposition de reprise
+2. aller dans l'onglet `Brouillons`
 3. choisir `Reprendre`
-4. retrouver les donnees en cours
+4. retrouver les donnees en cours dans la fenetre modale
 
 ### Flux 4 - Filtrer la liste
 
@@ -413,11 +425,21 @@ Message possible :
 2. la liste se met a jour
 3. si aucun resultat, afficher le message vide
 
+### Flux 5 - Reclasser des pieces depuis un filtre
+
+1. ouvrir l'onglet `Filtres`
+2. selectionner un filtre
+3. cocher une ou plusieurs pieces associees
+4. choisir un autre filtre
+5. cliquer sur `Associer la selection`
+
 ## Decisions V1 a valider
 
 Ces choix sont proposes pour la premiere implementation :
-- une seule vue principale avec liste et navigation simple
-- formulaire unique pour creation et edition
+- une vue `Pieces` volontairement simple
+- un formulaire unique pour creation et edition dans une modale
+- une vue `Filtres` orientee gestion et reclassement
+- une vue `Brouillons` orientee reprise explicite
 - titre comme seul champ obligatoire
 - filtres libres
 - sauvegarde uniquement sur action utilisateur

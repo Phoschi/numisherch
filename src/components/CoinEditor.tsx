@@ -13,6 +13,7 @@ type CoinEditorProps = {
   draftNotice?: string | null;
   onChange: <K extends keyof CoinEditorState>(field: K, value: CoinEditorState[K]) => void;
   onToggleFilter: (filterId: string) => void;
+  onRequestClose: () => void;
   onSave: () => void;
   onDelete: () => void;
 };
@@ -37,12 +38,13 @@ export function CoinEditor({
   draftNotice,
   onChange,
   onToggleFilter,
+  onRequestClose,
   onSave,
   onDelete,
 }: CoinEditorProps) {
   return (
     <aside className="editor-panel panel">
-      <div className="panel-header">
+      <div className="panel-header panel-header-with-action">
         <div>
           <p className="panel-kicker">{mode === "create" ? "Creation" : "Edition"}</p>
           <h2>{mode === "create" ? "Nouvelle piece" : activeTitle}</h2>
@@ -52,6 +54,9 @@ export function CoinEditor({
               : "Les changements ne deviennent definitifs qu'au clic sur Enregistrer."}
           </p>
         </div>
+        <button className="icon-button" type="button" onClick={onRequestClose}>
+          Fermer
+        </button>
       </div>
 
       <div className="editor-state-banner">

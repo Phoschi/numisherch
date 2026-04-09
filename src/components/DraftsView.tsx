@@ -24,7 +24,7 @@ export function DraftsView({ drafts, coins, onResumeDraft, onDeleteDraft }: Draf
           <p className="panel-kicker">Travail en cours</p>
           <h2>Brouillons</h2>
           <p className="panel-subtitle">
-            Aucun popup ici : tous les brouillons sont visibles et reprenables a la demande.
+            Les brouillons s'ouvrent maintenant dans la meme fenetre modale que la creation et l'edition.
           </p>
         </div>
         <span>{drafts.length}</span>

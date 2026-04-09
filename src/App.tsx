@@ -51,6 +51,7 @@ function App() {
   const [drafts, setDrafts] = useState<CoinDraft[]>([]);
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null);
+  const [editorDialogOpen, setEditorDialogOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editorState, setEditorState] = useState<CoinEditorState>(createEmptyEditorState());
   const [editorBaseline, setEditorBaseline] = useState<CoinEditorState>(createEmptyEditorState());
@@ -136,7 +137,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (loadingData || savingCoin || !editorIsDirty || isEditorStateEmpty(editorState)) {
+    if (loadingData || savingCoin || !editorDialogOpen || !editorIsDirty || isEditorStateEmpty(editorState)) {
       return;
     }
 
@@ -179,7 +180,7 @@ function App() {
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [editorDraftId, editorIsDirty, editorMode, editorState, loadingData, savingCoin, selectedCoinId]);
+  }, [editorDialogOpen, editorDraftId, editorIsDirty, editorMode, editorState, loadingData, savingCoin, selectedCoinId]);
 
   async function handleUpdate() {
     try {
@@ -268,9 +269,16 @@ function App() {
     setLastSavedMessage("Nouvelle fiche prete.");
   }
 
+  function closeEditorDialog() {
+    setEditorDialogOpen(false);
+    setEditorHasRecoveredDraft(false);
+    setDraftSaveState("idle");
+  }
+
   function handleCreateCoin() {
     setActiveTab("pieces");
     resetEditorForCreate();
+    setEditorDialogOpen(true);
     setStatus("Creation d'une nouvelle piece.");
   }
 
@@ -285,6 +293,7 @@ function App() {
     setEditorHasRecoveredDraft(false);
     setDraftSaveState("idle");
     setLastSavedMessage("Version enregistree chargee.");
+    setEditorDialogOpen(true);
     setStatus(`Edition de "${coin.title}".`);
   }
 
@@ -301,6 +310,7 @@ function App() {
       setEditorHasRecoveredDraft(true);
       setDraftSaveState("saved");
       setLastSavedMessage("Brouillon de creation recharge.");
+      setEditorDialogOpen(true);
       setStatus("Brouillon de creation charge.");
       return;
     }
@@ -315,6 +325,7 @@ function App() {
     setEditorHasRecoveredDraft(true);
     setDraftSaveState("saved");
     setLastSavedMessage("Brouillon d'edition recharge.");
+    setEditorDialogOpen(true);
     setStatus("Brouillon d'edition charge.");
   }
 
@@ -360,6 +371,96 @@ function App() {
     });
   }
 
+  function buildCoinPayload(): CreateCoinInput | UpdateCoinInput {
+    return {
+      title: editorState.title.trim(),
+      documentType: normalizeNullableString(editorState.documentType),
+      subject: normalizeNullableString(editorState.subject),
+      location: normalizeNullableString(editorState.location),
+      reference: normalizeNullableString(editorState.reference),
+      personalReference: normalizeNullableString(editorState.personalReference),
+      note: normalizeNullableString(editorState.note),
+      displayDate: normalizeNullableString(editorState.displayDate),
+      revolutionaryDate: normalizeNullableString(editorState.revolutionaryDate),
+      sortDate: normalizeNullableString(editorState.sortDate),
+      sortDatePrecision: editorState.sortDatePrecision || null,
+      filterIds: editorState.filterIds,
+    };
+  }
+
+  async function persistDraftNow() {
+    const payload: SaveDraftInput = {
+      id: editorDraftId ?? undefined,
+      coinId: editorMode === "edit" ? selectedCoinId : null,
+      mode: editorMode,
+      title: normalizeNullableString(editorState.title),
+      documentType: normalizeNullableString(editorState.documentType),
+      subject: normalizeNullableString(editorState.subject),
+      location: normalizeNullableString(editorState.location),
+      reference: normalizeNullableString(editorState.reference),
+      personalReference: normalizeNullableString(editorState.personalReference),
+      note: normalizeNullableString(editorState.note),
+      displayDate: normalizeNullableString(editorState.displayDate),
+      revolutionaryDate: normalizeNullableString(editorState.revolutionaryDate),
+      sortDate: normalizeNullableString(editorState.sortDate),
+      sortDatePrecision: editorState.sortDatePrecision || null,
+      selectedFilterIds: editorState.filterIds,
+    };
+
+    setDraftSaveState("saving");
+    const draft = await saveDraft(payload);
+    setEditorDraftId(draft.id);
+    setDraftSaveState("saved");
+    setLastSavedMessage("Brouillon local mis a jour.");
+    setDrafts((current) => {
+      const next = current.filter((item) => item.id !== draft.id);
+      return [draft, ...next];
+    });
+    return draft;
+  }
+
+  async function requestCloseEditor() {
+    if (savingCoin) {
+      return;
+    }
+
+    const hasContent = !isEditorStateEmpty(editorState);
+
+    if (!editorIsDirty) {
+      closeEditorDialog();
+      return;
+    }
+
+    if (!hasContent) {
+      closeEditorDialog();
+      return;
+    }
+
+    const shouldSaveAsDraft = window.confirm("Voulez-vous l'enregistrer en tant que brouillon ?");
+
+    if (shouldSaveAsDraft) {
+      try {
+        await persistDraftNow();
+        closeEditorDialog();
+        setStatus("Brouillon enregistre. Tu peux le reprendre depuis l'onglet Brouillons.");
+      } catch (error) {
+        console.error(error);
+        setDraftSaveState("error");
+        setStatus(`Erreur brouillon : ${String(error)}`);
+      }
+      return;
+    }
+
+    if (editorDraftId) {
+      await deleteDraft(editorDraftId).catch(() => undefined);
+      setDrafts((current) => current.filter((draft) => draft.id !== editorDraftId));
+    }
+
+    resetEditorForCreate();
+    closeEditorDialog();
+    setStatus("Modifications ignorees.");
+  }
+
   async function handleSaveCoin() {
     if (editorState.title.trim() === "") {
       setStatus("Le titre est obligatoire.");
@@ -368,20 +469,7 @@ function App() {
 
     setSavingCoin(true);
     try {
-      const payload: CreateCoinInput | UpdateCoinInput = {
-        title: editorState.title.trim(),
-        documentType: normalizeNullableString(editorState.documentType),
-        subject: normalizeNullableString(editorState.subject),
-        location: normalizeNullableString(editorState.location),
-        reference: normalizeNullableString(editorState.reference),
-        personalReference: normalizeNullableString(editorState.personalReference),
-        note: normalizeNullableString(editorState.note),
-        displayDate: normalizeNullableString(editorState.displayDate),
-        revolutionaryDate: normalizeNullableString(editorState.revolutionaryDate),
-        sortDate: normalizeNullableString(editorState.sortDate),
-        sortDatePrecision: editorState.sortDatePrecision || null,
-        filterIds: editorState.filterIds,
-      };
+      const payload = buildCoinPayload();
 
       let savedCoinId: string;
       if (editorMode === "edit" && selectedCoinId) {
@@ -403,7 +491,6 @@ function App() {
       setDraftSaveState("idle");
       setLastSavedMessage("Piece enregistree localement.");
       await loadData();
-
       const refreshedCoins = await getCoins();
       const coinToOpen = refreshedCoins.find((coin) => coin.id === savedCoinId) ?? null;
       setCoins(refreshedCoins);
@@ -413,9 +500,9 @@ function App() {
         setEditorMode("edit");
         setEditorState(baseline);
         setEditorBaseline(baseline);
-      } else {
-        resetEditorForCreate();
       }
+      closeEditorDialog();
+      setActiveTab("pieces");
     } catch (error) {
       console.error(error);
       setStatus(`Erreur enregistrement piece : ${String(error)}`);
@@ -441,6 +528,7 @@ function App() {
       }
 
       resetEditorForCreate();
+      closeEditorDialog();
       setStatus("Piece supprimee.");
       await loadData();
     } catch (error) {
@@ -465,7 +553,7 @@ function App() {
   const filterChips = (
     <div className="filter-chip-bar">
       <button
-        className={`filter-chip ${activeFilterId === null ? "filter-chip-active" : ""}`}
+        className={`filter-chip filter-chip-uniform ${activeFilterId === null ? "filter-chip-active" : ""}`}
         onClick={() => setActiveFilterId(null)}
       >
         Toutes les pieces
@@ -473,7 +561,7 @@ function App() {
       {filters.map((filter) => (
         <button
           key={filter.id}
-          className={`filter-chip ${activeFilterId === filter.id ? "filter-chip-active" : ""}`}
+          className={`filter-chip filter-chip-uniform ${activeFilterId === filter.id ? "filter-chip-active" : ""}`}
           onClick={() => setActiveFilterId((current) => (current === filter.id ? null : filter.id))}
         >
           <strong>{filter.name}</strong>
@@ -483,15 +571,82 @@ function App() {
     </div>
   );
 
+  async function handleAssignSelectedCoinsToFilter(coinIds: string[], targetFilterId: string) {
+    if (coinIds.length === 0 || targetFilterId === "") {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        coinIds.map(async (coinId) => {
+          const coin = coins.find((item) => item.id === coinId);
+          if (!coin) {
+            return;
+          }
+
+          const nextFilterIds = Array.from(new Set([...coin.filterIds, targetFilterId]));
+          await updateCoin(coin.id, {
+            title: coin.title,
+            documentType: coin.documentType,
+            subject: coin.subject,
+            location: coin.location,
+            reference: coin.reference,
+            personalReference: coin.personalReference,
+            note: coin.note,
+            displayDate: coin.displayDate,
+            revolutionaryDate: coin.revolutionaryDate,
+            sortDate: coin.sortDate,
+            sortDatePrecision: coin.sortDatePrecision,
+            filterIds: nextFilterIds,
+          });
+        }),
+      );
+
+      await loadData();
+      setStatus("Selection associee au filtre choisi.");
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur association filtre : ${String(error)}`);
+    }
+  }
+
+  async function handleRemoveCoinFromFilter(coinId: string, filterId: string) {
+    try {
+      const coin = coins.find((item) => item.id === coinId);
+      if (!coin) {
+        return;
+      }
+
+      const nextFilterIds = coin.filterIds.filter((currentFilterId) => currentFilterId !== filterId);
+      await updateCoin(coin.id, {
+        title: coin.title,
+        documentType: coin.documentType,
+        subject: coin.subject,
+        location: coin.location,
+        reference: coin.reference,
+        personalReference: coin.personalReference,
+        note: coin.note,
+        displayDate: coin.displayDate,
+        revolutionaryDate: coin.revolutionaryDate,
+        sortDate: coin.sortDate,
+        sortDatePrecision: coin.sortDatePrecision,
+        filterIds: nextFilterIds,
+      });
+
+      await loadData();
+      setStatus("Piece retiree du filtre.");
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur retrait filtre : ${String(error)}`);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar panel">
         <div>
           <p className="eyebrow">Numisherch</p>
           <h1>Collection et recherche numismatique</h1>
-          <p className="hero-copy">
-            Pieces, filtres et brouillons sont maintenant separes en vues distinctes pour mieux suivre le travail.
-          </p>
           <p className="version-note">Version installee : {appVersion}</p>
         </div>
 
@@ -516,28 +671,6 @@ function App() {
 
       {activeTab === "pieces" && (
         <>
-          <section className="action-context panel">
-            <div className="action-context-main">
-              <span className={`state-pill ${editorIsDirty ? "state-pill-warning" : "state-pill-neutral"}`}>
-                {editorIsDirty ? "Modifications non enregistrees" : "Aucune modification en attente"}
-              </span>
-              <div>
-                <strong>
-                  {editorMode === "create" ? "Creation d'une nouvelle piece" : selectedCoin?.title ?? "Edition d'une piece"}
-                </strong>
-                <p>{lastSavedMessage}</p>
-              </div>
-            </div>
-            <div className="action-context-side">
-              <span className={`micro-status micro-status-${draftSaveState}`}>
-                {draftSaveState === "saving" && "Brouillon en cours de sauvegarde"}
-                {draftSaveState === "saved" && "Brouillon local a jour"}
-                {draftSaveState === "error" && "Erreur de brouillon"}
-                {draftSaveState === "idle" && "Pret"}
-              </span>
-            </div>
-          </section>
-
           {(creationDraftNotice || selectedDraftNotice) && (
             <section className="notice-strip panel">
               {creationDraftNotice && (
@@ -563,10 +696,10 @@ function App() {
             <section className="list-column panel">
               <div className="panel-header">
                 <div>
-                  <p className="panel-kicker">Filtrage rapide</p>
+                  <p className="panel-kicker">Collection</p>
                   <h2>Pieces</h2>
                   <p className="panel-subtitle">
-                    Le filtrage est leger ici. La gestion complete des filtres reste dans son onglet dedie.
+                    Toutes les fiches se consultent ici. La creation et l'edition s'ouvrent dans une fenetre dediee.
                   </p>
                 </div>
                 <button className="primary-button" onClick={handleCreateCoin}>
@@ -574,7 +707,13 @@ function App() {
                 </button>
               </div>
 
-              {filterChips}
+              {filters.length === 0 ? (
+                <p className="empty-state empty-state-panel">
+                  Aucun filtre cree, veuillez aller dans l'onglet Filtres pour en creer.
+                </p>
+              ) : (
+                filterChips
+              )}
 
               <CoinList
                 coins={visibleCoins}
@@ -583,32 +722,16 @@ function App() {
                 filters={filters}
                 loading={loadingData}
                 totalCoinCount={coins.length}
-                onCreateCoin={handleCreateCoin}
                 onSelectCoin={handleSelectCoin}
               />
             </section>
-
-            <CoinEditor
-              mode={editorMode}
-              editorState={editorState}
-              filters={filters}
-              saving={savingCoin}
-              hasRecoveredDraft={editorHasRecoveredDraft}
-              isDirty={editorIsDirty}
-              saveStateLabel={lastSavedMessage}
-              activeTitle={selectedCoin?.title ?? "Nouvelle piece"}
-              draftNotice={null}
-              onChange={updateEditorField}
-              onToggleFilter={toggleEditorFilter}
-              onSave={() => void handleSaveCoin()}
-              onDelete={() => void handleDeleteCoin()}
-            />
           </section>
         </>
       )}
 
       {activeTab === "filters" && (
         <FilterManager
+          coins={coins}
           filters={filters}
           activeFilterId={activeFilterId}
           filterName={filterName}
@@ -619,6 +742,10 @@ function App() {
           onFilterDescriptionChange={setFilterDescription}
           onCreateFilter={() => void handleCreateFilter()}
           onDeleteFilter={(filter) => void handleDeleteFilter(filter)}
+          onAssignSelectedCoinsToFilter={(coinIds, targetFilterId) =>
+            void handleAssignSelectedCoinsToFilter(coinIds, targetFilterId)
+          }
+          onRemoveCoinFromFilter={(coinId, filterId) => void handleRemoveCoinFromFilter(coinId, filterId)}
         />
       )}
 
@@ -629,6 +756,33 @@ function App() {
           onResumeDraft={restoreDraft}
           onDeleteDraft={(draft) => void handleDeleteDraft(draft)}
         />
+      )}
+
+      {editorDialogOpen && (
+        <div className="modal-overlay" onClick={() => void requestCloseEditor()}>
+          <div className="modal-shell" onClick={(event) => event.stopPropagation()}>
+            <CoinEditor
+              mode={editorMode}
+              editorState={editorState}
+              filters={filters}
+              saving={savingCoin}
+              hasRecoveredDraft={editorHasRecoveredDraft}
+              isDirty={editorIsDirty}
+              saveStateLabel={lastSavedMessage}
+              activeTitle={selectedCoin?.title ?? "Nouvelle piece"}
+              draftNotice={
+                draftSaveState === "saved"
+                  ? "Le brouillon local est a jour. Fermer la fenetre proposera de le conserver."
+                  : null
+              }
+              onChange={updateEditorField}
+              onToggleFilter={toggleEditorFilter}
+              onRequestClose={() => void requestCloseEditor()}
+              onSave={() => void handleSaveCoin()}
+              onDelete={() => void handleDeleteCoin()}
+            />
+          </div>
+        </div>
       )}
 
       <footer className="footer-note">
