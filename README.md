@@ -96,10 +96,10 @@ Commandes :
 
 ```bash
 git add .
-git commit -m "release: v0.1.6"
-git tag v0.1.6
+git commit -m "release: v0.1.7"
+git tag v0.1.7
 git push
-git push origin v0.1.6
+git push origin v0.1.7
 ```
 
 ## Fichiers de version a garder alignes
@@ -121,7 +121,7 @@ Le workflow build maintenant :
 Le workflow se declenche a chaque push d'un tag au format :
 
 ```bash
-v0.1.6
+v0.1.7
 ```
 
 ## Updater Tauri
@@ -144,3 +144,11 @@ Cela signifie qu'une release valide doit generer les artefacts Tauri attendus po
 - `npm run tauri build` produit le package installable
 - sur Linux, il faut installer les bibliotheques systeme avant `npm run tauri dev`
 - la publication automatique depend des secrets GitHub utilises par le workflow, notamment la cle de signature Tauri
+
+## Checklist release
+
+Avant de pousser un tag :
+- verifier la meme version dans `package.json`, `src-tauri/tauri.conf.json` et `src-tauri/Cargo.toml`
+- verifier que `npm run build` passe
+- verifier que `npm run tauri dev` demarre sans erreur
+- creer un tag de la meme version que l'application
