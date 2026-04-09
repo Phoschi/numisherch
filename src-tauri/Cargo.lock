@@ -2138,7 +2138,7 @@ dependencies = [
 
 [[package]]
 name = "numisherch"
-version = "0.1.3"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
