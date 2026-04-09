@@ -56,6 +56,10 @@ export function getCoinDraft(coinId: string) {
   return invoke<CoinDraft | null>("get_coin_draft_command", { coinId });
 }
 
+export function getDrafts() {
+  return invoke<CoinDraft[]>("get_drafts_command");
+}
+
 export function saveDraft(input: SaveDraftInput) {
   return invoke<CoinDraft>("save_draft_command", { input });
 }

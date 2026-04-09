@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 
 import "./App.css";
 import { CoinEditor } from "./components/CoinEditor";
 import { CoinList } from "./components/CoinList";
-import { FilterSidebar } from "./components/FilterSidebar";
+import { DraftsView } from "./components/DraftsView";
+import { FilterManager } from "./components/FilterManager";
+import { TabNav, type AppTab } from "./components/TabNav";
 import {
   createCoin,
   createFilter,
@@ -12,9 +14,8 @@ import {
   deleteDraft,
   deleteFilter,
   getAppOverview,
-  getCoinDraft,
   getCoins,
-  getCreationDraft,
+  getDrafts,
   getFilters,
   saveDraft,
   updateCoin,
@@ -38,24 +39,27 @@ import type {
 } from "./types/domain";
 
 function App() {
+  const [activeTab, setActiveTab] = useState<AppTab>("pieces");
   const [status, setStatus] = useState("Pret");
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const [overview, setOverview] = useState<AppOverview | null>(null);
   const [coins, setCoins] = useState<CoinRecord[]>([]);
   const [filters, setFilters] = useState<Filter[]>([]);
-  const [creationDraft, setCreationDraft] = useState<CoinDraft | null>(null);
+  const [drafts, setDrafts] = useState<CoinDraft[]>([]);
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editorState, setEditorState] = useState<CoinEditorState>(createEmptyEditorState());
+  const [editorBaseline, setEditorBaseline] = useState<CoinEditorState>(createEmptyEditorState());
   const [editorDraftId, setEditorDraftId] = useState<string | null>(null);
   const [editorHasRecoveredDraft, setEditorHasRecoveredDraft] = useState(false);
+  const [draftSaveState, setDraftSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedMessage, setLastSavedMessage] = useState("Aucune modification en cours.");
   const [filterName, setFilterName] = useState("");
   const [filterDescription, setFilterDescription] = useState("");
   const [dataError, setDataError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [savingCoin, setSavingCoin] = useState(false);
-  const draftHydratedRef = useRef(false);
 
   const selectedCoin = useMemo(
     () => coins.find((coin) => coin.id === selectedCoinId) ?? null,
@@ -70,22 +74,40 @@ function App() {
     return coins.filter((coin) => coin.filterIds.includes(activeFilterId));
   }, [activeFilterId, coins]);
 
+  const editorIsDirty = useMemo(
+    () => JSON.stringify(editorState) !== JSON.stringify(editorBaseline),
+    [editorBaseline, editorState],
+  );
+
+  const creationDraft = useMemo(
+    () => drafts.find((draft) => draft.mode === "create") ?? null,
+    [drafts],
+  );
+
+  const selectedCoinDraft = useMemo(() => {
+    if (!selectedCoinId) {
+      return null;
+    }
+
+    return drafts.find((draft) => draft.mode === "edit" && draft.coinId === selectedCoinId) ?? null;
+  }, [drafts, selectedCoinId]);
+
   async function loadData() {
     try {
       setLoadingData(true);
       setDataError(null);
 
-      const [overviewResponse, coinsResponse, filtersResponse, draftResponse] = await Promise.all([
+      const [overviewResponse, coinsResponse, filtersResponse, draftsResponse] = await Promise.all([
         getAppOverview(),
         getCoins(),
         getFilters(),
-        getCreationDraft(),
+        getDrafts(),
       ]);
 
       setOverview(overviewResponse);
       setCoins(coinsResponse);
       setFilters(filtersResponse);
-      setCreationDraft(draftResponse);
+      setDrafts(draftsResponse);
     } catch (error) {
       console.error(error);
       setDataError(`Erreur de chargement des donnees : ${String(error)}`);
@@ -99,60 +121,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (draftHydratedRef.current || !creationDraft || selectedCoinId !== null || editorMode !== "create") {
-      return;
-    }
-
-    draftHydratedRef.current = true;
-    const shouldRestore = window.confirm(
-      "Un brouillon de creation a ete retrouve. Voulez-vous reprendre ce travail ?",
-    );
-
-    if (shouldRestore) {
-      setEditorMode("create");
-      setEditorState(draftToEditorState(creationDraft));
-      setEditorDraftId(creationDraft.id);
-      setEditorHasRecoveredDraft(true);
-      setStatus("Brouillon de creation restaure.");
-      return;
-    }
-
-    void deleteDraft(creationDraft.id)
-      .then(async () => {
-        setCreationDraft(null);
-        setStatus("Brouillon de creation ignore.");
-        await loadData();
-      })
-      .catch((error) => {
-        console.error(error);
-        setStatus(`Impossible de supprimer le brouillon ignore : ${String(error)}`);
-      });
-  }, [creationDraft, editorMode, selectedCoinId]);
-
-  useEffect(() => {
-    if (loadingData) {
-      return;
-    }
-
-    if (editorMode === "edit" && !selectedCoin) {
-      setEditorMode("create");
-      setEditorState(createEmptyEditorState());
-      setEditorDraftId(null);
-      setEditorHasRecoveredDraft(false);
-    }
-  }, [editorMode, loadingData, selectedCoin]);
-
-  useEffect(() => {
-    if (loadingData || savingCoin) {
-      return;
-    }
-
-    const hasContent = !isEditorStateEmpty(editorState);
-    if (!hasContent) {
+    if (loadingData || savingCoin || !editorIsDirty || isEditorStateEmpty(editorState)) {
       return;
     }
 
     const timeout = window.setTimeout(() => {
+      setDraftSaveState("saving");
       const payload: SaveDraftInput = {
         id: editorDraftId ?? undefined,
         coinId: editorMode === "edit" ? selectedCoinId : null,
@@ -174,18 +148,23 @@ function App() {
       void saveDraft(payload)
         .then((draft) => {
           setEditorDraftId(draft.id);
-          if (editorMode === "create") {
-            setCreationDraft(draft);
-          }
+          setDraftSaveState("saved");
+          setLastSavedMessage("Brouillon local mis a jour.");
+          setDrafts((current) => {
+            const next = current.filter((item) => item.id !== draft.id);
+            return [draft, ...next];
+          });
         })
         .catch((error) => {
           console.error(error);
+          setDraftSaveState("error");
+          setLastSavedMessage("Le brouillon n'a pas pu etre enregistre.");
           setStatus(`Erreur brouillon : ${String(error)}`);
         });
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [editorDraftId, editorMode, editorState, loadingData, savingCoin, selectedCoinId]);
+  }, [editorDraftId, editorIsDirty, editorMode, editorState, loadingData, savingCoin, selectedCoinId]);
 
   async function handleUpdate() {
     try {
@@ -259,42 +238,90 @@ function App() {
     }
   }
 
-  function handleCreateCoin() {
+  function resetEditorForCreate() {
+    const emptyState = createEmptyEditorState();
     setEditorMode("create");
     setSelectedCoinId(null);
-    setEditorState(createEmptyEditorState());
+    setEditorState(emptyState);
+    setEditorBaseline(emptyState);
     setEditorDraftId(null);
     setEditorHasRecoveredDraft(false);
+    setDraftSaveState("idle");
+    setLastSavedMessage("Nouvelle fiche prete.");
+  }
+
+  function handleCreateCoin() {
+    setActiveTab("pieces");
+    resetEditorForCreate();
     setStatus("Creation d'une nouvelle piece.");
   }
 
-  async function handleSelectCoin(coin: CoinRecord) {
+  function handleSelectCoin(coin: CoinRecord) {
+    const baseline = coinToEditorState(coin);
+    setActiveTab("pieces");
+    setSelectedCoinId(coin.id);
+    setEditorMode("edit");
+    setEditorState(baseline);
+    setEditorBaseline(baseline);
+    setEditorDraftId(null);
+    setEditorHasRecoveredDraft(false);
+    setDraftSaveState("idle");
+    setLastSavedMessage("Version enregistree chargee.");
+    setStatus(`Edition de "${coin.title}".`);
+  }
+
+  function restoreDraft(draft: CoinDraft) {
+    setActiveTab("pieces");
+
+    if (draft.mode === "create") {
+      const state = draftToEditorState(draft);
+      setEditorMode("create");
+      setSelectedCoinId(null);
+      setEditorState(state);
+      setEditorBaseline(createEmptyEditorState());
+      setEditorDraftId(draft.id);
+      setEditorHasRecoveredDraft(true);
+      setDraftSaveState("saved");
+      setLastSavedMessage("Brouillon de creation recharge.");
+      setStatus("Brouillon de creation charge.");
+      return;
+    }
+
+    const linkedCoin = coins.find((coin) => coin.id === draft.coinId) ?? null;
+    const baseline = linkedCoin ? coinToEditorState(linkedCoin) : createEmptyEditorState();
+    setSelectedCoinId(draft.coinId);
+    setEditorMode("edit");
+    setEditorState(draftToEditorState(draft));
+    setEditorBaseline(baseline);
+    setEditorDraftId(draft.id);
+    setEditorHasRecoveredDraft(true);
+    setDraftSaveState("saved");
+    setLastSavedMessage("Brouillon d'edition recharge.");
+    setStatus("Brouillon d'edition charge.");
+  }
+
+  async function handleDeleteDraft(draft: CoinDraft) {
+    const confirmed = window.confirm("Voulez-vous vraiment supprimer ce brouillon ?");
+    if (!confirmed) {
+      return;
+    }
+
     try {
-      const draft = await getCoinDraft(coin.id);
-      setSelectedCoinId(coin.id);
-      setEditorMode("edit");
+      await deleteDraft(draft.id);
+      setDrafts((current) => current.filter((item) => item.id !== draft.id));
 
-      if (draft) {
-        const shouldRestore = window.confirm(
-          "Un brouillon d'edition a ete retrouve pour cette piece. Voulez-vous le reprendre ?",
-        );
-
-        if (shouldRestore) {
-          setEditorState(draftToEditorState(draft));
-          setEditorDraftId(draft.id);
-          setEditorHasRecoveredDraft(true);
-          setStatus("Brouillon d'edition restaure.");
-          return;
-        }
+      if (editorDraftId === draft.id) {
+        setEditorDraftId(null);
+        setEditorHasRecoveredDraft(false);
+        setDraftSaveState("idle");
+        setLastSavedMessage("Brouillon supprime.");
       }
 
-      setEditorState(coinToEditorState(coin));
-      setEditorDraftId(null);
-      setEditorHasRecoveredDraft(false);
-      setStatus(`Edition de "${coin.title}".`);
+      setStatus("Brouillon supprime.");
+      await loadData();
     } catch (error) {
       console.error(error);
-      setStatus(`Erreur ouverture piece : ${String(error)}`);
+      setStatus(`Erreur suppression brouillon : ${String(error)}`);
     }
   }
 
@@ -350,23 +377,26 @@ function App() {
       }
 
       if (editorDraftId) {
-        await deleteDraft(editorDraftId);
+        await deleteDraft(editorDraftId).catch(() => undefined);
       }
 
       setEditorDraftId(null);
       setEditorHasRecoveredDraft(false);
-      setCreationDraft(null);
+      setDraftSaveState("idle");
+      setLastSavedMessage("Piece enregistree localement.");
       await loadData();
 
-      const refreshedCoin = await getCoins();
-      const coinToOpen = refreshedCoin.find((coin) => coin.id === savedCoinId) ?? null;
-      setCoins(refreshedCoin);
+      const refreshedCoins = await getCoins();
+      const coinToOpen = refreshedCoins.find((coin) => coin.id === savedCoinId) ?? null;
+      setCoins(refreshedCoins);
       if (coinToOpen) {
+        const baseline = coinToEditorState(coinToOpen);
         setSelectedCoinId(coinToOpen.id);
         setEditorMode("edit");
-        setEditorState(coinToEditorState(coinToOpen));
+        setEditorState(baseline);
+        setEditorBaseline(baseline);
       } else {
-        handleCreateCoin();
+        resetEditorForCreate();
       }
     } catch (error) {
       console.error(error);
@@ -391,18 +421,49 @@ function App() {
       if (editorDraftId) {
         await deleteDraft(editorDraftId).catch(() => undefined);
       }
+
+      resetEditorForCreate();
       setStatus("Piece supprimee.");
-      setSelectedCoinId(null);
-      setEditorMode("create");
-      setEditorState(createEmptyEditorState());
-      setEditorDraftId(null);
-      setEditorHasRecoveredDraft(false);
       await loadData();
     } catch (error) {
       console.error(error);
       setStatus(`Erreur suppression piece : ${String(error)}`);
     }
   }
+
+  const creationDraftNotice =
+    editorMode === "create" && creationDraft && editorDraftId !== creationDraft.id
+      ? "Un brouillon de creation existe deja dans l'onglet Brouillons."
+      : null;
+
+  const selectedDraftNotice =
+    editorMode === "edit" &&
+    selectedCoinDraft &&
+    editorDraftId !== selectedCoinDraft.id &&
+    selectedCoinDraft.coinId === selectedCoinId
+      ? "Un brouillon d'edition existe pour cette piece. Tu peux le reprendre depuis l'onglet Brouillons."
+      : null;
+
+  const filterChips = (
+    <div className="filter-chip-bar">
+      <button
+        className={`filter-chip ${activeFilterId === null ? "filter-chip-active" : ""}`}
+        onClick={() => setActiveFilterId(null)}
+      >
+        Toutes les pieces
+      </button>
+      {filters.map((filter) => (
+        <button
+          key={filter.id}
+          className={`filter-chip ${activeFilterId === filter.id ? "filter-chip-active" : ""}`}
+          onClick={() => setActiveFilterId((current) => (current === filter.id ? null : filter.id))}
+        >
+          <strong>{filter.name}</strong>
+          <span>{filter.description ?? "Sans description"}</span>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <main className="app-shell">
@@ -411,7 +472,7 @@ function App() {
           <p className="eyebrow">Numisherch</p>
           <h1>Collection et recherche numismatique</h1>
           <p className="hero-copy">
-            Base locale de pieces, filtres libres, tri chronologique et brouillons d'edition.
+            Pieces, filtres et brouillons sont maintenant separes en vues distinctes pour mieux suivre le travail.
           </p>
         </div>
 
@@ -421,8 +482,8 @@ function App() {
             <strong>{overview?.coinCount ?? 0}</strong>
           </div>
           <div className="status-chip">
-            <span>Filtres</span>
-            <strong>{overview?.filterCount ?? 0}</strong>
+            <span>Brouillons</span>
+            <strong>{overview?.draftCount ?? 0}</strong>
           </div>
           <button className="secondary-button" onClick={handleUpdate}>
             Recevoir une mise a jour
@@ -430,10 +491,105 @@ function App() {
         </div>
       </header>
 
+      <TabNav activeTab={activeTab} draftsCount={drafts.length} onTabChange={setActiveTab} />
+
       {dataError && <p className="error-banner">{dataError}</p>}
 
-      <section className="workspace">
-        <FilterSidebar
+      {activeTab === "pieces" && (
+        <>
+          <section className="action-context panel">
+            <div className="action-context-main">
+              <span className={`state-pill ${editorIsDirty ? "state-pill-warning" : "state-pill-neutral"}`}>
+                {editorIsDirty ? "Modifications non enregistrees" : "Aucune modification en attente"}
+              </span>
+              <div>
+                <strong>
+                  {editorMode === "create" ? "Creation d'une nouvelle piece" : selectedCoin?.title ?? "Edition d'une piece"}
+                </strong>
+                <p>{lastSavedMessage}</p>
+              </div>
+            </div>
+            <div className="action-context-side">
+              <span className={`micro-status micro-status-${draftSaveState}`}>
+                {draftSaveState === "saving" && "Brouillon en cours de sauvegarde"}
+                {draftSaveState === "saved" && "Brouillon local a jour"}
+                {draftSaveState === "error" && "Erreur de brouillon"}
+                {draftSaveState === "idle" && "Pret"}
+              </span>
+            </div>
+          </section>
+
+          {(creationDraftNotice || selectedDraftNotice) && (
+            <section className="notice-strip panel">
+              {creationDraftNotice && (
+                <div className="notice-strip-item">
+                  <p>{creationDraftNotice}</p>
+                  <button className="secondary-button" onClick={() => creationDraft && restoreDraft(creationDraft)}>
+                    Reprendre le brouillon
+                  </button>
+                </div>
+              )}
+              {selectedDraftNotice && (
+                <div className="notice-strip-item">
+                  <p>{selectedDraftNotice}</p>
+                  <button className="secondary-button" onClick={() => selectedCoinDraft && restoreDraft(selectedCoinDraft)}>
+                    Charger le brouillon
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          <section className="pieces-page">
+            <section className="list-column panel">
+              <div className="panel-header">
+                <div>
+                  <p className="panel-kicker">Filtrage rapide</p>
+                  <h2>Pieces</h2>
+                  <p className="panel-subtitle">
+                    Le filtrage est leger ici. La gestion complete des filtres reste dans son onglet dedie.
+                  </p>
+                </div>
+                <button className="primary-button" onClick={handleCreateCoin}>
+                  Nouvelle piece
+                </button>
+              </div>
+
+              {filterChips}
+
+              <CoinList
+                coins={visibleCoins}
+                selectedCoinId={selectedCoinId}
+                activeFilterId={activeFilterId}
+                filters={filters}
+                loading={loadingData}
+                totalCoinCount={coins.length}
+                onCreateCoin={handleCreateCoin}
+                onSelectCoin={handleSelectCoin}
+              />
+            </section>
+
+            <CoinEditor
+              mode={editorMode}
+              editorState={editorState}
+              filters={filters}
+              saving={savingCoin}
+              hasRecoveredDraft={editorHasRecoveredDraft}
+              isDirty={editorIsDirty}
+              saveStateLabel={lastSavedMessage}
+              activeTitle={selectedCoin?.title ?? "Nouvelle piece"}
+              draftNotice={null}
+              onChange={updateEditorField}
+              onToggleFilter={toggleEditorFilter}
+              onSave={() => void handleSaveCoin()}
+              onDelete={() => void handleDeleteCoin()}
+            />
+          </section>
+        </>
+      )}
+
+      {activeTab === "filters" && (
+        <FilterManager
           filters={filters}
           activeFilterId={activeFilterId}
           filterName={filterName}
@@ -442,32 +598,19 @@ function App() {
           onFilterSelect={setActiveFilterId}
           onFilterNameChange={setFilterName}
           onFilterDescriptionChange={setFilterDescription}
-          onCreateFilter={handleCreateFilter}
-          onDeleteFilter={handleDeleteFilter}
+          onCreateFilter={() => void handleCreateFilter()}
+          onDeleteFilter={(filter) => void handleDeleteFilter(filter)}
         />
+      )}
 
-        <CoinList
-          coins={visibleCoins}
-          selectedCoinId={selectedCoinId}
-          activeFilterId={activeFilterId}
-          filters={filters}
-          loading={loadingData}
-          onCreateCoin={handleCreateCoin}
-          onSelectCoin={(coin) => void handleSelectCoin(coin)}
+      {activeTab === "drafts" && (
+        <DraftsView
+          drafts={drafts}
+          coins={coins}
+          onResumeDraft={restoreDraft}
+          onDeleteDraft={(draft) => void handleDeleteDraft(draft)}
         />
-
-        <CoinEditor
-          mode={editorMode}
-          editorState={editorState}
-          filters={filters}
-          saving={savingCoin}
-          hasRecoveredDraft={editorHasRecoveredDraft}
-          onChange={updateEditorField}
-          onToggleFilter={toggleEditorFilter}
-          onSave={() => void handleSaveCoin()}
-          onDelete={() => void handleDeleteCoin()}
-        />
-      </section>
+      )}
 
       <footer className="footer-note">
         <p>{status}</p>

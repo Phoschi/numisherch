@@ -6,6 +6,7 @@ type CoinListProps = {
   activeFilterId: string | null;
   filters: Filter[];
   loading: boolean;
+  totalCoinCount: number;
   onCreateCoin: () => void;
   onSelectCoin: (coin: CoinRecord) => void;
 };
@@ -16,6 +17,7 @@ export function CoinList({
   activeFilterId,
   filters,
   loading,
+  totalCoinCount,
   onCreateCoin,
   onSelectCoin,
 }: CoinListProps) {
@@ -31,9 +33,14 @@ export function CoinList({
             {activeFilter ? `Filtre actif : ${activeFilter.name}` : "Toutes les pieces classees par date"}
           </p>
         </div>
-        <button className="primary-button" onClick={onCreateCoin}>
-          Nouvelle piece
-        </button>
+        <div className="list-toolbar">
+          <span className="soft-counter">
+            {coins.length}/{totalCoinCount}
+          </span>
+          <button className="primary-button" onClick={onCreateCoin}>
+            Nouvelle piece
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -56,7 +63,10 @@ export function CoinList({
                   onClick={() => onSelectCoin(coin)}
                 >
                   <div className="coin-card-head">
-                    <strong>{coin.title}</strong>
+                    <div className="coin-card-title-wrap">
+                      <strong>{coin.title}</strong>
+                      <small>{selected ? "Fiche ouverte" : "Cliquer pour ouvrir"}</small>
+                    </div>
                     <span>{coin.displayDate ?? "Date libre non renseignee"}</span>
                   </div>
 

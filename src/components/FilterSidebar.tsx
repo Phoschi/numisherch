@@ -31,11 +31,16 @@ export function FilterSidebar({
         <div>
           <p className="panel-kicker">Organisation</p>
           <h2>Filtres</h2>
+          <p className="panel-subtitle">Creer des regroupements libres pour retrouver les pieces plus vite.</p>
         </div>
         <span>{filters.length}</span>
       </div>
 
-      <div className="filter-creation">
+      <div className="subsection-card filter-creation">
+        <div className="subsection-header">
+          <h3>Nouveau filtre</h3>
+          <p>Ajoute une etiquette personnelle a reutiliser sur plusieurs pieces.</p>
+        </div>
         <input
           className="field"
           type="text"
@@ -53,6 +58,11 @@ export function FilterSidebar({
         <button className="primary-button block-button" onClick={onCreateFilter}>
           Creer le filtre
         </button>
+      </div>
+
+      <div className="subsection-header subsection-tight">
+        <h3>Filtres existants</h3>
+        <p>{activeFilterId === null ? "Toutes les pieces sont affichees." : "Un filtre est actuellement applique."}</p>
       </div>
 
       <button

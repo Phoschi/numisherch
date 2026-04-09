@@ -4,9 +4,8 @@ mod models;
 
 use commands::{
     create_coin_command, create_filter_command, delete_coin_command, delete_draft_command,
-    delete_filter_command, get_app_overview, get_coin_draft_command, get_coins,
-    get_creation_draft_command, get_filters, save_draft_command, update_coin_command,
-    update_filter_command,
+    delete_filter_command, get_app_overview, get_coin_draft_command, get_coins, get_creation_draft_command,
+    get_drafts_command, get_filters, save_draft_command, update_coin_command, update_filter_command,
 };
 use db::initialize_database;
 use tauri::Manager;
@@ -35,6 +34,7 @@ pub fn run() {
             delete_filter_command,
             get_creation_draft_command,
             get_coin_draft_command,
+            get_drafts_command,
             save_draft_command,
             delete_draft_command
         ])

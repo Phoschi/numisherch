@@ -394,6 +394,25 @@ pub fn get_coin_draft(connection: &Connection, coin_id: &str) -> Result<Option<C
         .map_err(|error| format!("Impossible de lire le brouillon: {error}"))
 }
 
+pub fn list_drafts(connection: &Connection) -> Result<Vec<CoinDraft>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT id, coin_id, mode, title, document_type, subject, location, reference,
+                    personal_reference, note, display_date, revolutionary_date, sort_date,
+                    sort_date_precision, selected_filter_ids, created_at, updated_at
+             FROM coin_drafts
+             ORDER BY updated_at DESC",
+        )
+        .map_err(|error| format!("Impossible de preparer la lecture des brouillons: {error}"))?;
+
+    let rows = statement
+        .query_map([], map_draft)
+        .map_err(|error| format!("Impossible de lire les brouillons: {error}"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Impossible de mapper les brouillons: {error}"))
+}
+
 pub fn save_draft(connection: &Connection, input: SaveDraftInput) -> Result<CoinDraft, String> {
     let draft_id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let existing_created_at = get_draft_created_at(connection, &draft_id)?;

@@ -3,7 +3,7 @@ use tauri::State;
 use crate::{
     db::{
         create_coin, create_filter, delete_coin, delete_draft, delete_filter, get_coin_draft,
-        get_creation_draft, get_overview, list_coins, list_filters, open_connection_from_state,
+        get_creation_draft, get_overview, list_coins, list_drafts, list_filters, open_connection_from_state,
         save_draft, update_coin, update_filter, DatabaseState,
     },
     models::{
@@ -98,6 +98,12 @@ pub fn get_coin_draft_command(
 ) -> Result<Option<CoinDraft>, String> {
     let connection = open_connection_from_state(&state)?;
     get_coin_draft(&connection, &coin_id)
+}
+
+#[tauri::command]
+pub fn get_drafts_command(state: State<'_, DatabaseState>) -> Result<Vec<CoinDraft>, String> {
+    let connection = open_connection_from_state(&state)?;
+    list_drafts(&connection)
 }
 
 #[tauri::command]
