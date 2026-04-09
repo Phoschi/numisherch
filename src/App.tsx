@@ -665,6 +665,28 @@ function App() {
         </div>
       </header>
 
+      <section className="update-panel panel">
+        <div className="update-panel-copy">
+          <span className="status-inline">Etat</span>
+        </div>
+        <div className="update-panel-side">
+          <span
+            className={`update-badge ${
+              availableVersion
+                ? "update-badge-available"
+                : status.startsWith("Aucune mise a jour")
+                  ? "update-badge-none"
+                  : status.startsWith("Erreur")
+                    ? "update-badge-error"
+                    : "update-badge-idle"
+            }`}
+          >
+            {availableVersion ? `Mise a jour dispo : ${availableVersion}` : status}
+          </span>
+          <p className="update-version">Version installee : {appVersion}</p>
+        </div>
+      </section>
+
       <TabNav activeTab={activeTab} draftsCount={drafts.length} onTabChange={setActiveTab} />
 
       {dataError && <p className="error-banner">{dataError}</p>}
@@ -698,13 +720,24 @@ function App() {
                 <div>
                   <p className="panel-kicker">Collection</p>
                   <h2>Pieces</h2>
-                  <p className="panel-subtitle">
-                    Toutes les fiches se consultent ici. La creation et l'edition s'ouvrent dans une fenetre dediee.
-                  </p>
                 </div>
                 <button className="primary-button" onClick={handleCreateCoin}>
                   Nouvelle piece
                 </button>
+              </div>
+
+              <div className="pieces-toolbar">
+                <div className="pieces-toolbar-copy">
+                  <strong>{activeFilterId ? "Filtre actif" : "Toutes les pieces"}</strong>
+                </div>
+                <div className="pieces-toolbar-side">
+                  <span className={`micro-status micro-status-${draftSaveState}`}>
+                    {draftSaveState === "saving" && "Brouillon en cours"}
+                    {draftSaveState === "saved" && "Brouillon a jour"}
+                    {draftSaveState === "error" && "Erreur de brouillon"}
+                    {draftSaveState === "idle" && "Aucun brouillon actif"}
+                  </span>
+                </div>
               </div>
 
               {filters.length === 0 ? (

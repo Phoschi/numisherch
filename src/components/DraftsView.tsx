@@ -23,15 +23,15 @@ export function DraftsView({ drafts, coins, onResumeDraft, onDeleteDraft }: Draf
         <div>
           <p className="panel-kicker">Travail en cours</p>
           <h2>Brouillons</h2>
-          <p className="panel-subtitle">
-            Les brouillons s'ouvrent maintenant dans la meme fenetre modale que la creation et l'edition.
-          </p>
         </div>
         <span>{drafts.length}</span>
       </div>
 
       {drafts.length === 0 ? (
-        <p className="empty-state">Aucun brouillon pour le moment.</p>
+        <div className="empty-state-card">
+          <strong>Aucun brouillon pour le moment</strong>
+          <p className="empty-state">Les brouillons apparaissent ici.</p>
+        </div>
       ) : (
         <ul className="drafts-list">
           {drafts.map((draft) => (

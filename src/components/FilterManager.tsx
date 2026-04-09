@@ -67,9 +67,6 @@ export function FilterManager(props: FilterManagerProps) {
         <div>
           <p className="panel-kicker">Organisation</p>
           <h2>Filtres</h2>
-          <p className="panel-subtitle">
-            Gere ici les categories et reclasser rapidement les pieces deja associees.
-          </p>
         </div>
         <span>{filters.length}</span>
       </div>
@@ -78,7 +75,6 @@ export function FilterManager(props: FilterManagerProps) {
         <div className="subsection-card">
           <div className="subsection-header">
             <h3>Nouveau filtre</h3>
-            <p>Ajoute une etiquette reutilisable pour organiser la collection.</p>
           </div>
           <div className="filter-creation">
             <input
@@ -104,7 +100,6 @@ export function FilterManager(props: FilterManagerProps) {
         <div className="subsection-card">
           <div className="subsection-header">
             <h3>Liste des filtres</h3>
-            <p>{activeFilterId ? "Un filtre est actuellement applique dans l'onglet Pieces." : "Aucun filtre actif."}</p>
           </div>
 
           <div className="filter-chip-stack">
@@ -151,17 +146,18 @@ export function FilterManager(props: FilterManagerProps) {
         <div className="subsection-card filter-association-panel">
           <div className="subsection-header">
             <h3>Pieces du filtre</h3>
-            <p>
-              {activeFilterId
-                ? "Selectionne plusieurs pieces pour les associer rapidement a un autre filtre."
-                : "Choisis un filtre dans la liste pour voir les pieces associees."}
-            </p>
           </div>
 
           {!activeFilterId ? (
-            <p className="empty-state">Aucun filtre selectionne.</p>
+            <div className="empty-state-card">
+              <strong>Aucun filtre selectionne</strong>
+              <p className="empty-state">Choisis un filtre pour voir les pieces associees.</p>
+            </div>
           ) : associatedCoins.length === 0 ? (
-            <p className="empty-state">Aucune piece n'est encore associee a ce filtre.</p>
+            <div className="empty-state-card">
+              <strong>Aucune piece dans ce filtre</strong>
+              <p className="empty-state">Aucune association pour le moment.</p>
+            </div>
           ) : (
             <>
               <div className="bulk-association-bar">
@@ -185,7 +181,7 @@ export function FilterManager(props: FilterManagerProps) {
                   onClick={() => onAssignSelectedCoinsToFilter(selectedCoinIds, targetFilterId)}
                   disabled={selectedCoinIds.length === 0 || targetFilterId === ""}
                 >
-                  Associer la selection
+                  Associer les pieces selectionnees
                 </button>
               </div>
 

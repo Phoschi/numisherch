@@ -41,11 +41,14 @@ export function CoinList({
       {loading ? (
         <p className="empty-state">Chargement des pieces...</p>
       ) : coins.length === 0 ? (
-        <p className="empty-state">
-          {activeFilter
-            ? "Aucune piece ne correspond au filtre selectionne."
-            : "Aucune piece enregistree pour le moment. Cree la premiere fiche."}
-        </p>
+        <div className="empty-state-card">
+          <strong>{activeFilter ? "Aucune piece dans ce filtre" : "Aucune piece enregistree"}</strong>
+          <p className="empty-state">
+            {activeFilter
+              ? "Change de filtre ou cree une nouvelle piece pour commencer a remplir cette categorie."
+              : "Commence par creer une premiere piece, puis organise-la avec des filtres."}
+          </p>
+        </div>
       ) : (
         <ul className="coin-list">
           {coins.map((coin) => {
@@ -60,7 +63,7 @@ export function CoinList({
                   <div className="coin-card-head">
                     <div className="coin-card-title-wrap">
                       <strong>{coin.title}</strong>
-                      <small>{selected ? "Fiche ouverte" : "Cliquer pour ouvrir"}</small>
+                      <small>{selected ? "Fiche ouverte dans l'editeur" : "Cliquer pour ouvrir la fiche"}</small>
                     </div>
                     <span>{coin.displayDate ?? "Date libre non renseignee"}</span>
                   </div>
@@ -82,6 +85,11 @@ export function CoinList({
                       })}
                     </div>
                   )}
+
+                  <div className="coin-card-footer">
+                    <span>{coin.location ?? "Localisation non renseignee"}</span>
+                    <span className="coin-card-cta">{selected ? "Fiche en cours" : "Ouvrir la fiche"}</span>
+                  </div>
                 </button>
               </li>
             );

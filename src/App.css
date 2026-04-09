@@ -228,6 +228,27 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.pieces-toolbar {
+  margin: 1rem 0 0.85rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border: 1px solid rgba(84, 60, 24, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.pieces-toolbar-copy strong {
+  display: block;
+}
+
+.pieces-toolbar-side {
+  display: flex;
+  align-items: center;
+}
+
 .filter-chip-bar,
 .editor-tags {
   display: flex;
@@ -344,6 +365,22 @@ textarea {
   flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.85rem;
+}
+
+.coin-card-footer {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(84, 60, 24, 0.08);
+  font-size: 0.85rem;
+  color: rgba(32, 24, 18, 0.78);
+}
+
+.coin-card-cta {
+  font-weight: 700;
+  color: #83571e;
 }
 
 .mini-tag {
@@ -634,6 +671,17 @@ textarea {
   background: rgba(168, 63, 63, 0.14);
 }
 
+.status-inline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 100%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.68;
+}
+
 .micro-status {
   font-size: 0.86rem;
   opacity: 0.82;
@@ -669,6 +717,18 @@ textarea {
   border: 1px dashed rgba(125, 90, 35, 0.2);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.54);
+}
+
+.empty-state-card {
+  padding: 1rem;
+  border: 1px dashed rgba(125, 90, 35, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.empty-state-card strong {
+  display: block;
+  margin-bottom: 0.35rem;
 }
 
 .error-banner {
