@@ -1,226 +1,481 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 
 import "./App.css";
+import { CoinEditor } from "./components/CoinEditor";
+import { CoinList } from "./components/CoinList";
+import { FilterSidebar } from "./components/FilterSidebar";
 import {
   createCoin,
   createFilter,
+  deleteCoin,
+  deleteDraft,
+  deleteFilter,
   getAppOverview,
+  getCoinDraft,
   getCoins,
   getCreationDraft,
   getFilters,
+  saveDraft,
+  updateCoin,
 } from "./services/backend";
-import type { AppOverview, CoinRecord, Filter } from "./types/domain";
+import {
+  coinToEditorState,
+  createEmptyEditorState,
+  draftToEditorState,
+  isEditorStateEmpty,
+  normalizeNullableString,
+  type CoinEditorState,
+} from "./lib/editor";
+import type {
+  AppOverview,
+  CoinDraft,
+  CoinRecord,
+  CreateCoinInput,
+  Filter,
+  SaveDraftInput,
+  UpdateCoinInput,
+} from "./types/domain";
 
 function App() {
- const [status, setStatus] = useState("Prêt");
- const [currentVersion, setCurrentVersion] = useState<string | null>(null);
- const [overview, setOverview] = useState<AppOverview | null>(null);
- const [coins, setCoins] = useState<CoinRecord[]>([]);
- const [filters, setFilters] = useState<Filter[]>([]);
- const [draftDetected, setDraftDetected] = useState(false);
- const [dataError, setDataError] = useState<string | null>(null);
- const [loadingData, setLoadingData] = useState(true);
+  const [status, setStatus] = useState("Pret");
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [overview, setOverview] = useState<AppOverview | null>(null);
+  const [coins, setCoins] = useState<CoinRecord[]>([]);
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [creationDraft, setCreationDraft] = useState<CoinDraft | null>(null);
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+  const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
+  const [editorState, setEditorState] = useState<CoinEditorState>(createEmptyEditorState());
+  const [editorDraftId, setEditorDraftId] = useState<string | null>(null);
+  const [editorHasRecoveredDraft, setEditorHasRecoveredDraft] = useState(false);
+  const [filterName, setFilterName] = useState("");
+  const [filterDescription, setFilterDescription] = useState("");
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [savingCoin, setSavingCoin] = useState(false);
+  const draftHydratedRef = useRef(false);
 
- async function loadData() {
-   try {
-     setLoadingData(true);
-     setDataError(null);
+  const selectedCoin = useMemo(
+    () => coins.find((coin) => coin.id === selectedCoinId) ?? null,
+    [coins, selectedCoinId],
+  );
 
-     const [overviewResponse, coinsResponse, filtersResponse, draftResponse] = await Promise.all([
-       getAppOverview(),
-       getCoins(),
-       getFilters(),
-       getCreationDraft(),
-     ]);
+  const visibleCoins = useMemo(() => {
+    if (!activeFilterId) {
+      return coins;
+    }
 
-     setOverview(overviewResponse);
-     setCoins(coinsResponse);
-     setFilters(filtersResponse);
-     setDraftDetected(Boolean(draftResponse));
-   } catch (error) {
-     console.error(error);
-     setDataError(`Erreur de chargement des donnees : ${String(error)}`);
-   } finally {
-     setLoadingData(false);
-   }
- }
+    return coins.filter((coin) => coin.filterIds.includes(activeFilterId));
+  }, [activeFilterId, coins]);
 
- useEffect(() => {
-   void loadData();
- }, []);
+  async function loadData() {
+    try {
+      setLoadingData(true);
+      setDataError(null);
 
- async function handleUpdate() {
-   try {
-     setStatus("Vérification des mises à jour...");
+      const [overviewResponse, coinsResponse, filtersResponse, draftResponse] = await Promise.all([
+        getAppOverview(),
+        getCoins(),
+        getFilters(),
+        getCreationDraft(),
+      ]);
 
-     const update = await check();
+      setOverview(overviewResponse);
+      setCoins(coinsResponse);
+      setFilters(filtersResponse);
+      setCreationDraft(draftResponse);
+    } catch (error) {
+      console.error(error);
+      setDataError(`Erreur de chargement des donnees : ${String(error)}`);
+    } finally {
+      setLoadingData(false);
+    }
+  }
 
-     if (!update) {
-       setStatus("Aucune mise à jour disponible.");
-       return;
-     }
+  useEffect(() => {
+    void loadData();
+  }, []);
 
-     setCurrentVersion(update.currentVersion);
-     setStatus(`Mise à jour disponible : ${update.version}. Téléchargement...`);
+  useEffect(() => {
+    if (draftHydratedRef.current || !creationDraft || selectedCoinId !== null || editorMode !== "create") {
+      return;
+    }
 
-     await update.downloadAndInstall((event) => {
-       switch (event.event) {
-         case "Started":
-           setStatus(`Téléchargement démarré (${event.data.contentLength ?? "taille inconnue"} octets)`);
-           break;
-         case "Progress":
-           setStatus(`Téléchargement : ${event.data.chunkLength} octets reçus`);
-           break;
-         case "Finished":
-           setStatus("Téléchargement terminé. Installation...");
-           break;
-       }
-     });
+    draftHydratedRef.current = true;
+    const shouldRestore = window.confirm(
+      "Un brouillon de creation a ete retrouve. Voulez-vous reprendre ce travail ?",
+    );
 
-     setStatus("Mise à jour installée. Redémarre l'application.");
-   } catch (error) {
-     console.error(error);
-     setStatus(`Erreur pendant la mise à jour : ${String(error)}`);
-   }
- }
+    if (shouldRestore) {
+      setEditorMode("create");
+      setEditorState(draftToEditorState(creationDraft));
+      setEditorDraftId(creationDraft.id);
+      setEditorHasRecoveredDraft(true);
+      setStatus("Brouillon de creation restaure.");
+      return;
+    }
 
- async function handleCreateSampleFilter() {
-   try {
-     await createFilter({
-       name: `Atelier ${filters.length + 1}`,
-       description: "Filtre de test",
-       color: null,
-     });
-     setStatus("Filtre de test créé.");
-     await loadData();
-   } catch (error) {
-     console.error(error);
-     setStatus(`Erreur filtre : ${String(error)}`);
-   }
- }
+    void deleteDraft(creationDraft.id)
+      .then(async () => {
+        setCreationDraft(null);
+        setStatus("Brouillon de creation ignore.");
+        await loadData();
+      })
+      .catch((error) => {
+        console.error(error);
+        setStatus(`Impossible de supprimer le brouillon ignore : ${String(error)}`);
+      });
+  }, [creationDraft, editorMode, selectedCoinId]);
 
- async function handleCreateSampleCoin() {
-   try {
-     await createCoin({
-       title: `Piece test ${coins.length + 1}`,
-       documentType: "Piece",
-       subject: "Fondation technique",
-       location: "Collection personnelle",
-       reference: null,
-       personalReference: `TEST-${coins.length + 1}`,
-       note: "Creee pour valider le socle SQLite et les commandes Tauri.",
-       displayDate: "1792",
-       revolutionaryDate: "an I",
-       sortDate: "1792-01-01",
-       sortDatePrecision: "year",
-       filterIds: filters[0] ? [filters[0].id] : [],
-     });
-     setStatus("Pièce de test créée.");
-     await loadData();
-   } catch (error) {
-     console.error(error);
-     setStatus(`Erreur piece : ${String(error)}`);
-   }
- }
+  useEffect(() => {
+    if (loadingData) {
+      return;
+    }
 
- return (
-   <main className="app-shell">
-     <section className="hero">
-       <div>
-         <p className="eyebrow">Numisherch</p>
-         <h1>Socle SQLite et commandes Tauri en place</h1>
-         <p className="hero-copy">
-           Cette etape pose les fondations de l'application : base locale SQLite,
-           CRUD backend, types frontend et verification du branchement.
-         </p>
-       </div>
+    if (editorMode === "edit" && !selectedCoin) {
+      setEditorMode("create");
+      setEditorState(createEmptyEditorState());
+      setEditorDraftId(null);
+      setEditorHasRecoveredDraft(false);
+    }
+  }, [editorMode, loadingData, selectedCoin]);
 
-       <div className="hero-actions">
-         <button className="primary-button" onClick={handleCreateSampleFilter}>
-           Creer un filtre test
-         </button>
-         <button className="primary-button" onClick={handleCreateSampleCoin}>
-           Creer une piece test
-         </button>
-         <button className="secondary-button" onClick={() => void loadData()}>
-           Recharger les donnees
-         </button>
-         <button className="secondary-button" onClick={handleUpdate}>
-           Recevoir une mise a jour
-         </button>
-       </div>
-     </section>
+  useEffect(() => {
+    if (loadingData || savingCoin) {
+      return;
+    }
 
-     <section className="status-grid">
-       <article className="status-card">
-         <span className="status-label">Statut</span>
-         <p>{status}</p>
-         {currentVersion && <p>Version actuelle detectee : {currentVersion}</p>}
-       </article>
-       <article className="status-card">
-         <span className="status-label">Base locale</span>
-         {loadingData && <p>Chargement...</p>}
-         {!loadingData && overview && (
-           <>
-             <p>{overview.coinCount} piece(s)</p>
-             <p>{overview.filterCount} filtre(s)</p>
-             <p>{overview.draftCount} brouillon(s)</p>
-           </>
-         )}
-       </article>
-       <article className="status-card">
-         <span className="status-label">Brouillons</span>
-         <p>{draftDetected ? "Un brouillon de creation est present." : "Aucun brouillon detecte."}</p>
-       </article>
-     </section>
+    const hasContent = !isEditorStateEmpty(editorState);
+    if (!hasContent) {
+      return;
+    }
 
-     {dataError && <p className="error-banner">{dataError}</p>}
+    const timeout = window.setTimeout(() => {
+      const payload: SaveDraftInput = {
+        id: editorDraftId ?? undefined,
+        coinId: editorMode === "edit" ? selectedCoinId : null,
+        mode: editorMode,
+        title: normalizeNullableString(editorState.title),
+        documentType: normalizeNullableString(editorState.documentType),
+        subject: normalizeNullableString(editorState.subject),
+        location: normalizeNullableString(editorState.location),
+        reference: normalizeNullableString(editorState.reference),
+        personalReference: normalizeNullableString(editorState.personalReference),
+        note: normalizeNullableString(editorState.note),
+        displayDate: normalizeNullableString(editorState.displayDate),
+        revolutionaryDate: normalizeNullableString(editorState.revolutionaryDate),
+        sortDate: normalizeNullableString(editorState.sortDate),
+        sortDatePrecision: editorState.sortDatePrecision || null,
+        selectedFilterIds: editorState.filterIds,
+      };
 
-     <section className="debug-grid">
-       <article className="panel">
-         <div className="panel-header">
-           <h2>Filtres</h2>
-           <span>{filters.length}</span>
-         </div>
-         {filters.length === 0 ? (
-           <p className="empty-state">Aucun filtre pour le moment.</p>
-         ) : (
-           <ul className="stack-list">
-             {filters.map((filter) => (
-               <li key={filter.id} className="stack-item">
-                 <strong>{filter.name}</strong>
-                 <span>{filter.description ?? "Sans description"}</span>
-               </li>
-             ))}
-           </ul>
-         )}
-       </article>
+      void saveDraft(payload)
+        .then((draft) => {
+          setEditorDraftId(draft.id);
+          if (editorMode === "create") {
+            setCreationDraft(draft);
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          setStatus(`Erreur brouillon : ${String(error)}`);
+        });
+    }, 700);
 
-       <article className="panel">
-         <div className="panel-header">
-           <h2>Pieces</h2>
-           <span>{coins.length}</span>
-         </div>
-         {coins.length === 0 ? (
-           <p className="empty-state">Aucune piece enregistree pour le moment.</p>
-         ) : (
-           <ul className="stack-list">
-             {coins.map((coin) => (
-               <li key={coin.id} className="stack-item">
-                 <strong>{coin.title}</strong>
-                 <span>{coin.displayDate ?? "Date libre non renseignee"}</span>
-                 <span>{coin.personalReference ?? "Sans reference perso"}</span>
-               </li>
-             ))}
-           </ul>
-         )}
-       </article>
-     </section>
+    return () => window.clearTimeout(timeout);
+  }, [editorDraftId, editorMode, editorState, loadingData, savingCoin, selectedCoinId]);
 
-     {overview && <p className="db-path">Base SQLite : {overview.databasePath}</p>}
-   </main>
- );
+  async function handleUpdate() {
+    try {
+      setStatus("Verification des mises a jour...");
+
+      const update = await check();
+
+      if (!update) {
+        setStatus("Aucune mise a jour disponible.");
+        return;
+      }
+
+      setCurrentVersion(update.currentVersion);
+      setStatus(`Mise a jour disponible : ${update.version}. Telechargement...`);
+
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case "Started":
+            setStatus(`Telechargement demarre (${event.data.contentLength ?? "taille inconnue"} octets)`);
+            break;
+          case "Progress":
+            setStatus(`Telechargement : ${event.data.chunkLength} octets recus`);
+            break;
+          case "Finished":
+            setStatus("Telechargement termine. Installation...");
+            break;
+        }
+      });
+
+      setStatus("Mise a jour installee. Redemarre l'application.");
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur pendant la mise a jour : ${String(error)}`);
+    }
+  }
+
+  async function handleCreateFilter() {
+    try {
+      await createFilter({
+        name: filterName,
+        description: normalizeNullableString(filterDescription),
+        color: null,
+      });
+
+      setFilterName("");
+      setFilterDescription("");
+      setStatus("Filtre cree.");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur filtre : ${String(error)}`);
+    }
+  }
+
+  async function handleDeleteFilter(filter: Filter) {
+    const confirmed = window.confirm(`Voulez-vous vraiment supprimer le filtre "${filter.name}" ?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteFilter(filter.id);
+      if (activeFilterId === filter.id) {
+        setActiveFilterId(null);
+      }
+      setStatus("Filtre supprime.");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur suppression filtre : ${String(error)}`);
+    }
+  }
+
+  function handleCreateCoin() {
+    setEditorMode("create");
+    setSelectedCoinId(null);
+    setEditorState(createEmptyEditorState());
+    setEditorDraftId(null);
+    setEditorHasRecoveredDraft(false);
+    setStatus("Creation d'une nouvelle piece.");
+  }
+
+  async function handleSelectCoin(coin: CoinRecord) {
+    try {
+      const draft = await getCoinDraft(coin.id);
+      setSelectedCoinId(coin.id);
+      setEditorMode("edit");
+
+      if (draft) {
+        const shouldRestore = window.confirm(
+          "Un brouillon d'edition a ete retrouve pour cette piece. Voulez-vous le reprendre ?",
+        );
+
+        if (shouldRestore) {
+          setEditorState(draftToEditorState(draft));
+          setEditorDraftId(draft.id);
+          setEditorHasRecoveredDraft(true);
+          setStatus("Brouillon d'edition restaure.");
+          return;
+        }
+      }
+
+      setEditorState(coinToEditorState(coin));
+      setEditorDraftId(null);
+      setEditorHasRecoveredDraft(false);
+      setStatus(`Edition de "${coin.title}".`);
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur ouverture piece : ${String(error)}`);
+    }
+  }
+
+  function updateEditorField<K extends keyof CoinEditorState>(field: K, value: CoinEditorState[K]) {
+    setEditorState((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleEditorFilter(filterId: string) {
+    setEditorState((current) => {
+      const alreadySelected = current.filterIds.includes(filterId);
+
+      return {
+        ...current,
+        filterIds: alreadySelected
+          ? current.filterIds.filter((currentFilterId) => currentFilterId !== filterId)
+          : [...current.filterIds, filterId],
+      };
+    });
+  }
+
+  async function handleSaveCoin() {
+    if (editorState.title.trim() === "") {
+      setStatus("Le titre est obligatoire.");
+      return;
+    }
+
+    setSavingCoin(true);
+    try {
+      const payload: CreateCoinInput | UpdateCoinInput = {
+        title: editorState.title.trim(),
+        documentType: normalizeNullableString(editorState.documentType),
+        subject: normalizeNullableString(editorState.subject),
+        location: normalizeNullableString(editorState.location),
+        reference: normalizeNullableString(editorState.reference),
+        personalReference: normalizeNullableString(editorState.personalReference),
+        note: normalizeNullableString(editorState.note),
+        displayDate: normalizeNullableString(editorState.displayDate),
+        revolutionaryDate: normalizeNullableString(editorState.revolutionaryDate),
+        sortDate: normalizeNullableString(editorState.sortDate),
+        sortDatePrecision: editorState.sortDatePrecision || null,
+        filterIds: editorState.filterIds,
+      };
+
+      let savedCoinId: string;
+      if (editorMode === "edit" && selectedCoinId) {
+        const updated = await updateCoin(selectedCoinId, payload);
+        savedCoinId = updated.id;
+        setStatus("Piece mise a jour.");
+      } else {
+        const created = await createCoin(payload);
+        savedCoinId = created.id;
+        setStatus("Piece creee.");
+      }
+
+      if (editorDraftId) {
+        await deleteDraft(editorDraftId);
+      }
+
+      setEditorDraftId(null);
+      setEditorHasRecoveredDraft(false);
+      setCreationDraft(null);
+      await loadData();
+
+      const refreshedCoin = await getCoins();
+      const coinToOpen = refreshedCoin.find((coin) => coin.id === savedCoinId) ?? null;
+      setCoins(refreshedCoin);
+      if (coinToOpen) {
+        setSelectedCoinId(coinToOpen.id);
+        setEditorMode("edit");
+        setEditorState(coinToEditorState(coinToOpen));
+      } else {
+        handleCreateCoin();
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur enregistrement piece : ${String(error)}`);
+    } finally {
+      setSavingCoin(false);
+    }
+  }
+
+  async function handleDeleteCoin() {
+    if (!selectedCoinId || editorMode !== "edit") {
+      return;
+    }
+
+    const confirmed = window.confirm("Voulez-vous vraiment supprimer cette piece ?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteCoin(selectedCoinId);
+      if (editorDraftId) {
+        await deleteDraft(editorDraftId).catch(() => undefined);
+      }
+      setStatus("Piece supprimee.");
+      setSelectedCoinId(null);
+      setEditorMode("create");
+      setEditorState(createEmptyEditorState());
+      setEditorDraftId(null);
+      setEditorHasRecoveredDraft(false);
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      setStatus(`Erreur suppression piece : ${String(error)}`);
+    }
+  }
+
+  return (
+    <main className="app-shell">
+      <header className="topbar panel">
+        <div>
+          <p className="eyebrow">Numisherch</p>
+          <h1>Collection et recherche numismatique</h1>
+          <p className="hero-copy">
+            Base locale de pieces, filtres libres, tri chronologique et brouillons d'edition.
+          </p>
+        </div>
+
+        <div className="topbar-side">
+          <div className="status-chip">
+            <span>Pieces</span>
+            <strong>{overview?.coinCount ?? 0}</strong>
+          </div>
+          <div className="status-chip">
+            <span>Filtres</span>
+            <strong>{overview?.filterCount ?? 0}</strong>
+          </div>
+          <button className="secondary-button" onClick={handleUpdate}>
+            Recevoir une mise a jour
+          </button>
+        </div>
+      </header>
+
+      {dataError && <p className="error-banner">{dataError}</p>}
+
+      <section className="workspace">
+        <FilterSidebar
+          filters={filters}
+          activeFilterId={activeFilterId}
+          filterName={filterName}
+          filterDescription={filterDescription}
+          loading={loadingData}
+          onFilterSelect={setActiveFilterId}
+          onFilterNameChange={setFilterName}
+          onFilterDescriptionChange={setFilterDescription}
+          onCreateFilter={handleCreateFilter}
+          onDeleteFilter={handleDeleteFilter}
+        />
+
+        <CoinList
+          coins={visibleCoins}
+          selectedCoinId={selectedCoinId}
+          activeFilterId={activeFilterId}
+          filters={filters}
+          loading={loadingData}
+          onCreateCoin={handleCreateCoin}
+          onSelectCoin={(coin) => void handleSelectCoin(coin)}
+        />
+
+        <CoinEditor
+          mode={editorMode}
+          editorState={editorState}
+          filters={filters}
+          saving={savingCoin}
+          hasRecoveredDraft={editorHasRecoveredDraft}
+          onChange={updateEditorField}
+          onToggleFilter={toggleEditorFilter}
+          onSave={() => void handleSaveCoin()}
+          onDelete={() => void handleDeleteCoin()}
+        />
+      </section>
+
+      <footer className="footer-note">
+        <p>{status}</p>
+        {currentVersion && <p>Version actuelle detectee : {currentVersion}</p>}
+        {overview && <p>Base SQLite : {overview.databasePath}</p>}
+      </footer>
+    </main>
+  );
 }
 
 export default App;
