@@ -96,10 +96,10 @@ Commandes :
 
 ```bash
 git add .
-git commit -m "release: v0.1.7"
-git tag v0.1.7
+git commit -m "release: vX.Y.Z"
+git tag vX.Y.Z
 git push
-git push origin v0.1.7
+git push origin vX.Y.Z
 ```
 
 ## Fichiers de version a garder alignes
@@ -121,7 +121,7 @@ Le workflow build maintenant :
 Le workflow se declenche a chaque push d'un tag au format :
 
 ```bash
-v0.1.7
+vX.Y.Z
 ```
 
 ## Updater Tauri
